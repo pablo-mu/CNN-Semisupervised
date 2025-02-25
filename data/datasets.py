@@ -6,6 +6,44 @@ from torchvision import datasets
 import torch
 import numpy as np
 
+class TransformTwice:
+    def __init__(self, transform):
+        self.transform = transform
+
+    def __call__(self, inp):
+        out1 = self.transform(inp)
+        out2 = self.transform(inp)
+        return out1, out2
+
+def get_cifar10(root, n_labeled, transform_train = None, transform_val = None, download = False):
+    base_dataset = datasets.CIFAR10(root, train=True, download=download)
+    train_labeled_idxs, train_unlabeled_idxs, val_idxs = train_val_split(base_dataset.targets, int(n_labeled/10))
+
+    train_labeled_dataset = CIFAR10_labeled(root, train_labeled_idxs, train=True, transform=transform_train)
+    train_unlabeled_dataset = CIFAR10_unlabeled(root, train_unlabeled_idxs, train=True, transform=TransformTwice(transform_train))
+    val_dataset = CIFAR10_labeled(root, val_idxs, train=True, transform=transform_val, download=True)
+    test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=True)
+
+    print (f"#Labeled: {len(train_labeled_idxs)} #Unlabeled: {len(train_unlabeled_idxs)} #Val: {len(val_idxs)}")
+    return train_labeled_dataset, train_unlabeled_dataset, val_dataset, test_dataset
+
+def train_val_split(labels, n_labeled_per_class):
+    labels = np.array(labels)
+    train_labeled_idxs = []
+    train_unlabeled_idxs = []
+    val_idxs = []
+    
+    for i in range(10):
+        idxs = np.where(labels == i)[0]
+        np.random.shuffle(idxs)
+        train_labeled_idxs.extend(idxs[:n_labeled_per_class])
+        train_unlabeled_idxs.extend(idxs[n_labeled_per_class:-500])
+        val_idxs.extend(idxs[-500:])
+    np.random.shuffle(train_labeled_idxs)
+    np.random.shuffle(train_unlabeled_idxs)
+    np.random.shuffle(val_idxs)
+    return train_labeled_idxs, train_unlabeled_idxs, val_idxs
+
 def pad(x, border = 4):
     return np.pad(x, ((border, border), (border, border), (0, 0)), mode = 'reflect')
 
