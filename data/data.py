@@ -15,14 +15,33 @@ class TransformTwice:
         out2 = self.transform(inp)
         return out1, out2
 
+def get_mean_and_std(dataset, train_labeled_idxs, train_unlabeled_idxs):
+    
+    all_idxs = np.concatenate([train_labeled_idxs, train_unlabeled_idxs])
+    
+    # Images
+    images = dataset.data[all_idxs].astype(np.float32)
+    
+    # Compute the mean and std of the images
+    mean = np.mean(images, axis = (0, 1, 2)) / 255
+    std = np.std(images, axis = (0, 1, 2)) / 255
+    
+    return mean, std
+    
+    
+    
 def get_cifar10(root, n_labeled, transform_train = None, transform_val = None, download = False):
     base_dataset = datasets.CIFAR10(root, train=True, download=download)
     train_labeled_idxs, train_unlabeled_idxs, val_idxs = train_val_split(base_dataset.targets, int(n_labeled/10))
+    
+    # Calculate the mean and std of the train 
+    mean, std = get_mean_and_std(base_dataset, train_labeled_idxs, train_unlabeled_idxs)
+    
 
-    train_labeled_dataset = CIFAR10_labeled(root, train_labeled_idxs, train=True, transform=transform_train)
-    train_unlabeled_dataset = CIFAR10_unlabeled(root, train_unlabeled_idxs, train=True, transform=TransformTwice(transform_train))
-    val_dataset = CIFAR10_labeled(root, val_idxs, train=True, transform=transform_val, download=True)
-    test_dataset = CIFAR10_labeled(root, train=False, transform=transform_val, download=True)
+    train_labeled_dataset = CIFAR10_labeled(root, mean, std, train_labeled_idxs, train=True,transform=transform_train)
+    train_unlabeled_dataset = CIFAR10_unlabeled(root, mean,std, train_unlabeled_idxs, train=True, transform=TransformTwice(transform_train))
+    val_dataset = CIFAR10_labeled(root,mean,std, val_idxs, train=True, transform=transform_val, download=True)
+    test_dataset = CIFAR10_labeled(root,mean,std, train=False, transform=transform_val, download=True)
 
     print (f"#Labeled: {len(train_labeled_idxs)} #Unlabeled: {len(train_unlabeled_idxs)} #Val: {len(val_idxs)}")
     return train_labeled_dataset, train_unlabeled_dataset, val_dataset, test_dataset
@@ -44,8 +63,8 @@ def train_val_split(labels, n_labeled_per_class):
     np.random.shuffle(val_idxs)
     return train_labeled_idxs, train_unlabeled_idxs, val_idxs
 
-def pad(x, border = 4):
-    return np.pad(x, ((border, border), (border, border), (0, 0)), mode = 'reflect')
+def pad(x, border=4):
+    return np.pad(x, [(0, 0), (border, border), (border, border)], mode='reflect')
 
 class RandomPandandCrop(object):
     """Crop randomly the image in a sample.
@@ -71,7 +90,7 @@ class RandomPandandCrop(object):
         left = np.random.randint(0, w - new_w)
         
         x = x[:, top: top + new_h, left: left + new_h]
-        
+
         return x
 
 class RandomFlip(object):
@@ -104,18 +123,19 @@ class ToTensor(object):
         torch.Tensor: Image as Tensor    
     """
     def __call__(self, x):
-        x = torch.from_numpy(x)
+        x = torch.from_numpy(x.copy())
         return x
     
 
 class CIFAR10_labeled(datasets.CIFAR10):
-    def __init__(self, root, indexs = None, train = True, transform = None,
+    def __init__(self, root, mean, std, indexs = None, train = True, transform = None,
                  target_transform = None, download = False):
         super(CIFAR10_labeled, self).__init__(root, train = train, transform = transform,
                                               target_transform = target_transform, download = download)
         if indexs is not None:
             self.data = self.data[indexs]
             self.targets = np.array(self.targets)[indexs]
+        self.data = transpose(normalize(self.data,mean,std))
     
     def __getitem__(self, index):
         """_summary_
@@ -139,11 +159,10 @@ class CIFAR10_labeled(datasets.CIFAR10):
 
 
 class CIFAR10_unlabeled(CIFAR10_labeled):
-
-    def __init__(self, root, indexs, train=True,
+    def __init__(self, root,mean,std, indexs, train=True,
                  transform=None, target_transform=None,
                  download=False):
-        super(CIFAR10_unlabeled, self).__init__(root, indexs, train=train,
+        super(CIFAR10_unlabeled, self).__init__(root, mean,std, indexs, train=train,
                  transform=transform, target_transform=target_transform,
                  download=download)
         self.targets = np.array([-1 for i in range(len(self.targets))])

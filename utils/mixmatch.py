@@ -15,7 +15,7 @@ class WeightEMA(object):
             ema_param.data.copy_(param.data)
         
     def step(self):
-        one_minus_alpha = 1.0 - self.ema_decay
+        one_minus_alpha = 1.0 - self.alpha
         for param, ema_param in zip(self.params, self.ema_params):
             if ema_param.dtype == torch.float32:
                 ema_param.mul_(self.alpha)
