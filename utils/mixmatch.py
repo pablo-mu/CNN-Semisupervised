@@ -2,6 +2,27 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+class WeightEMA(object):
+    def __init__(self, model, ema_model, lr, ema_decay):
+        self.model = model
+        self.ema_model = ema_model
+        self.alpha = ema_decay
+        self.params = list(model.state_dict().values())
+        self.ema_params = list(ema_model.state_dict().values())
+        self.wd = 0.02 * lr
+        
+        for param, ema_param in zip(self.params, self.ema_params):
+            ema_param.data.copy_(param.data)
+        
+    def step(self):
+        one_minus_alpha = 1.0 - self.ema_decay
+        for param, ema_param in zip(self.params, self.ema_params):
+            if ema_param.dtype == torch.float32:
+                ema_param.mul_(self.alpha)
+                ema_param.add_(param * one_minus_alpha)
+                #Custom weight decay
+                param.mul_(1-self.wd)
+                
 
 def interleave_offsets(batch, nu):
     """Calculate the inidices to split a batch into several parts that are as balanced as possible.
