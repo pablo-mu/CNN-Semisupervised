@@ -47,6 +47,7 @@ def main():
     
     writer = Logger(config.out_dir)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
     
     transform_train = transforms.Compose([
         data.RandomPandandCrop(32),
@@ -60,14 +61,14 @@ def main():
     print('==> Preparing data..')
     train_labeled_set, train_unlabeled_set, val_set, test_set = data.get_cifar10('./data', config.n_labeled, transform_train=transform_train, transform_val=transform_val, download=True)
 
-    labeled_loader = DataLoader(train_labeled_set, batch_size=config.batch_size, shuffle=True, num_workers=0, drop_last=True)
-    unlabeled_loader = DataLoader(train_unlabeled_set, batch_size=config.batch_size, shuffle=True, num_workers=0, drop_last=True)
-    val_loader = DataLoader(val_set, batch_size=config.batch_size, shuffle=False, num_workers=0)
-    test_loader = DataLoader(test_set, batch_size=config.batch_size, shuffle=False, num_workers=0)
+    labeled_loader = DataLoader(train_labeled_set, batch_size=config.batch_size, shuffle=True, num_workers=2, drop_last=True)
+    unlabeled_loader = DataLoader(train_unlabeled_set, batch_size=config.batch_size, shuffle=True, num_workers=2, drop_last=True)
+    val_loader = DataLoader(val_set, batch_size=config.batch_size, shuffle=False, num_workers=2)
+    test_loader = DataLoader(test_set, batch_size=config.batch_size, shuffle=False, num_workers=2)
     
     # Model, optimizer, EMA and Loss
-    model = create_model(ema = False, model = 'cnn')
-    ema_model = create_model(ema = True, model = 'cnn')
+    model = create_model(ema = False, model = 'wideresnet')
+    ema_model = create_model(ema = True, model = 'wideresnet')
     optimizer = optim.Adam(model.parameters(), lr=config.lr)
     semi_loss = mm.SemiLoss()
     ema_optimizer = mm.WeightEMA(model, ema_model, config.lr, config.ema_decay)
@@ -93,17 +94,20 @@ def main():
         
         # Train
         train_loss = trainer.train_epoch(labeled_loader, unlabeled_loader, epoch)
-        writer.add_scalar('Train/loss', train_loss, epoch)
+        writer.add_scalar('Train/loss', train_loss, epoch +1)
         
         # Validate
         val_loss, val_acc = trainer.validate(val_loader, ema_model, ce_loss)
-        writer.add_scalar('Loss/Validation', val_loss, epoch)
-        writer.add_scalar('Accuracy/Vaidation', val_acc, epoch)
+        writer.add_scalar('Loss/Validation', val_loss, epoch +1)
+        writer.add_scalar('Accuracy/Vaidation', val_acc, epoch +1)
         
         # Test
         test_loss, test_acc = trainer.validate(test_loader, ema_model, ce_loss, 'Test')
-        writer.add_scalar('Loss/Test', test_loss, epoch)
-        writer.add_scalar('Accuracy/Test', test_acc, epoch)
+        writer.add_scalar('Loss/Test', test_loss, epoch +1)
+        writer.add_scalar('Accuracy/Test', test_acc, epoch +1)
+        
+        # Graphs and histograms
+        
         
         if val_acc > best_acc:
             best_acc = val_acc
