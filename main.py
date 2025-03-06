@@ -24,7 +24,7 @@ def save_checkpoint(epoch, model, ema_model, optimizer, ema_optimizer, best_acc)
         'model_state_dict': model.state_dict(),
         'ema_model_state_dict': ema_model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
-        'ema_optimizer_state_dict': ema_optimizer.state_dict(),
+        #'ema_optimizer_state_dict': ema_optimizer.state_dict(),
         'best_acc': best_acc
     }
     torch.save(checkpoint, CHECKPOINT_PATH)
@@ -36,7 +36,7 @@ def load_checkpoint(model, ema_model, optimizer, ema_optimizer):
         model.load_state_dict(checkpoint['model_state_dict'])
         ema_model.load_state_dict(checkpoint['ema_model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        ema_optimizer.load_state_dict(checkpoint['ema_optimizer_state_dict'])
+        #ema_optimizer.load_state_dict(checkpoint['ema_optimizer_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
         best_acc = checkpoint['best_acc']
         print(f"Resuming training from epoch {start_epoch}")
@@ -46,7 +46,7 @@ def load_checkpoint(model, ema_model, optimizer, ema_optimizer):
 def main():
     
     writer = Logger(config.out_dir)
-    device = torch.device('cuda' if torch.cuda.is_availableI() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     transform_train = transforms.Compose([
         data.RandomPandandCrop(32),

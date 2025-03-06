@@ -1,5 +1,5 @@
-from cnn import SimpleCNN
-from wideresnet import WideResNet
+from models.cnn import SimpleCNN
+from models.wideresnet import WideResNet
 
 
 def create_model(ema = False, model = 'cnn'):

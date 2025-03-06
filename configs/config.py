@@ -10,7 +10,7 @@ class Config:
         self.batch_size = 64
         self.lr = 0.002
         self.n_labeled = 250
-        self.train_iteration = 1024
+        self.train_iteration = 128
         self.alpha = 0.75
         self.lambda_u = 75
         self.T = 0.5

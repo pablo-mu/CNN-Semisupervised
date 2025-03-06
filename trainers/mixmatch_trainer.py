@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 import torchvision
 from tqdm import tqdm
+from utils.misc import AverageMeter
 
 import utils.mixmatch as mm
 
@@ -65,6 +66,39 @@ class MixMatchTrainer:
         
         return total_loss / self.config.train_iteration
     
+    def validate(self, loader, model, criterion, mode = 'Val'):
+        """Validate the model on a given dataset. 
+
+        Args:
+            loader (DataLoader): DataLoader for validation/test set
+            model (nn.Module): Model to evaluate
+            epoch (int): Current epoch number (for logging)
+            mode (str): Mode of validation. Either 'Val' or 'Test'
+        """
+        model.eval()
+        losses = AverageMeter()
+        acc = AverageMeter()
+        
+    
+        with torch.no_grad():
+            for batch_idx, (inputs, targets) in enumerate(loader):
+                if self.config.use_cuda:
+                    inputs, targets = inputs.cuda(), targets.cuda()
+                
+                # Compute output
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                losses.update(loss.item(), inputs.size(0))
+                
+                # Compute accuracy
+                _, predicted = outputs.max(1) # get the index of the max log-probability
+                total = targets.size(0) # get the size of the batch
+                correct = predicted.eq(targets).sum().item() # get the number of correct predictions
+                acc.update(correct, total)
+            return losses.avg, acc.avg
+                
+                
+                    
     def _log_images(self, images, epoch, tag):
         grid = torchvision.utils.make_grid(images[:8])
         self.writer.add_image(tag, grid, epoch)
@@ -130,7 +164,7 @@ class MixMatchTrainer:
         return mixed_input, mixed_target
     
     
-    def _get_labeled_batch(self, labeled_loader):
+    def _get_labeled_batch(self, labeled_iter, labeled_loader):
         """Fetches the next batch of unlabeled data.
         If the labeled data loader is exhausted, it restarts the iterator.
     
@@ -149,7 +183,7 @@ class MixMatchTrainer:
             labeled_iter = iter(labeled_loader)
             inputs_x, targets_x = next(labeled_iter)
         
-        return inputs_x, 
+        return inputs_x, targets_x
     
     def _get_unlabeled_batch(self, unlabeled_iter, unlabeled_loader):
         """
